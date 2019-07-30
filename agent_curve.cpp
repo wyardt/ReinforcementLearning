@@ -17,7 +17,14 @@ typedef struct {
 	Position_TypeDef current_position;
 	Position_TypeDef target_position;
 	float gamma = 0.9;
+	uint32_t t;
+	float cost;
 }Agent_TypeDef;
+
+typedef struct {
+	float vTemp;
+	bool target_reached;
+}NextState_TypeDef;
 
 typedef struct {
 	Position_TypeDef top;
@@ -39,23 +46,49 @@ Obstacle_TypeDef obs = {
 
 bool X[ROW][COL] = { 0 };
 float V[ROW][COL] = { 0 };
+uint32_t T = 0;
 
-float findNextBiggestReward(Agent_TypeDef *agt, uint16_t step);
+NextState_TypeDef getToNext(float gamma, Agent_TypeDef agt);
+Action_TypeDef findMax(float *v);
+
 int main()
 {
+	agent.current_position = { 8, 9 };
+	agent.target_position = { 2, 7 };
+	agent.cost = -0.0;
+	agent.gamma = 0.999;
+
 	/* init value function */
 	for (uint16_t i = 0; i < ROW; i++)
 	{
 		for (uint16_t j = 0; j < COL; j++)
 		{
-			V[i][j] = rand()/ RAND_MAX;
+			V[i][j] = 0.0;// (rand() % 100 + 1) / 100.0;
 		}
 		V[agent.target_position.x][agent.target_position.y] = 1;
 	}
+	std::cout << "init value function is\n";
+	for (uint16_t i = 0; i < ROW; i++)
+	{
+		for (uint16_t j = 0; j < COL; j++)
+		{
+			if ((i >= obs.top.y) && (i <= obs.bottom.y)
+				&& (j >= obs.top.x) && (j <= obs.bottom.x))
+			{
+				//std::cout << 0;
+				printf("%9.9f-", 0);
+			}
+			else
+			{
+				//std::cout << V[i][j];
+				printf("%9.9f-", V[i][j]);
+			}
+		}
+		std::cout << '\n';
+	}
+	
 	/* generate map X */
-	agent.current_position = { 8, 9 };
-	agent.target_position = { 2, 7 };
-
+	
 	std::cout << "map is \n";
 	for (uint16_t i = 0; i < ROW; i++)
 	{
@@ -77,42 +110,42 @@ int main()
 
 	float Vtemp[ROW][COL] = { 0 };
 
-	for (uint16_t ii = 0; ii < ROW; ii++)
+	while (T++ < 100)
 	{
-		for (uint16_t jj = 0; jj < ROW; jj++)
+		for (uint16_t i = 0; i < ROW; i++)
 		{
-			for (uint16_t i = 0; i < ROW; i++)
+			for (uint16_t j = 0; j < COL; j++)
 			{
-				for (uint16_t j = 0; j < COL; j++)
+				if (X[i][j] == true)
 				{
-					if (X[i][j] == true)
-					{
-						uint16_t step = 1;
-						float valueT = 0;
-						agent.current_position.x = i;
-						agent.current_position.y = j;
-						//while ((valueT = findNextBiggestReward(&agent, step)) > 0.000001)
-						while (step < 200)
-						{
-							valueT = findNextBiggestReward(&agent, step);
-							step++;
-							V[i][j] += valueT;
-						}
-						;
-					}
+					uint16_t step = 1;
+					float valueT = 0;
+					agent.current_position.x = i;
+					agent.current_position.y = j;
+					agent.t = 0;
+					Vtemp[i][j] = (getToNext(agent.gamma, agent)).vTemp;
 				}
 			}
-			if (abs(V[ii][jj] - Vtemp[ii][jj]) > 0.000001)
+		}
+#if 1
+		bool shouldBeNextTime = false;
+		for (uint16_t ii = 0; ii < ROW; ii++)
+		{
+			for (uint16_t jj = 0; jj < ROW; jj++)
 			{
-				;
-			}
-			else
-			{
-				break;
+				if (abs(V[ii][jj] - Vtemp[ii][jj]) > 0.000001)
+				{
+					V[ii][jj] = Vtemp[ii][jj]; /* need renew next time */
+					shouldBeNextTime = true;
+				}
 			}
 		}
+		if (false == shouldBeNextTime)
+		{
+			break;
+		}
+#endif
 	}
-
 	std::cout << "value function is\n";
 	for (uint16_t i = 0; i < ROW; i++)
 	{
@@ -134,9 +167,180 @@ int main()
 	}
 }
 
+
+NextState_TypeDef getToNext(float gamma, Agent_TypeDef agt)
+{
+	NextState_TypeDef result = {
+		0.0,
+		false
+	};
+	Position_TypeDef p_save;
+
+	Position_TypeDef *p = &agt.current_position;
+	float v[4];
+	Action_TypeDef act;
+
+	/* get to the target position, exit */
+	if ((agt.current_position.x == agent.target_position.x) && (agt.current_position.y == agent.target_position.y))
+	{
+		result.target_reached = true;
+		result.vTemp = 1.0;
+		return result;
+	}
+
+	/* find next move's value */
+	if ((p->y != 0) && (X[p->x][p->y - 1] != false))
+	{
+		v[action_up] = V[p->x][p->y - 1];
+	}
+	if ((p->y != ROW - 1) && (X[p->x][p->y + 1] != false))
+	{
+		v[action_down] = V[p->x][p->y + 1];
+	}
+	if ((p->x != 0) && (X[p->x - 1][p->y] != false))
+	{
+		v[action_left] = V[p->x - 1][p->y];
+	}
+	if ((p->x != COL - 1) && (X[p->x + 1][p->y] != false))
+	{
+		v[action_right] = V[p->x + 1][p->y];
+	}
+
+	act = findMax(v);
+
+	p_save.x = p->x;
+	p_save.y = p->y;
+
+	/* update value function of current position */
+	switch (act)
+	{
+	case action_up:
+		//V[p->x][p->y] = gamma * V[p->x][p->y - 1];
+		//p->y--;
+		p->y--;
+		break;
+	case action_down:
+		//V[p->x][p->y] = gamma * V[p->x][p->y + 1];
+		//p->y++;
+		p->y++;
+		break;
+	case action_left:
+		//V[p->x][p->y] = gamma * V[p->x - 1][p->y];
+		//p->x--;
+		p->x--;
+		break;
+	case action_right:
+		//V[p->x][p->y] = gamma * V[p->x + 1][p->y];
+		//p->x++;
+		p->x++;
+		break;
+	default:
+		break;
+	}
+	//V[p_save.x][p_save.y] = (getToNext(agt->gamma * gamma, agt)).vTemp + agt->cost;
+	
+	/* update the old value function */
+	//V[p_save.x][p_save.y] = agt->gamma * V[p->x][p->y];
+	V[p_save.x][p_save.y] += gamma * (getToNext(agent.gamma * gamma, agt)).vTemp;
+
+	/* calculate the new value function */
+	result.vTemp = (getToNext(agent.gamma * gamma, agt)).vTemp + agent.cost;
+
+	return result;
+}
+#if 0
+{
+	NextState_TypeDef result = {
+		0.0,
+		false
+	};
+	Position_TypeDef p_save;
+
+	Position_TypeDef *p = &agt->current_position;
+	float v[4];
+	Action_TypeDef act;
+
+	agt->t++;
+
+	/* get to the target position, exit */
+	if ((agt->current_position.x == agt->target_position.x) && (agt->current_position.y == agt->target_position.y))
+	{
+		result.target_reached = true;
+		result.vTemp = 1.0;
+		return result;
+	}
+
+	/* find next move's value */
+	if ((p->y != 0) && (X[p->x][p->y - 1] != false))
+	{
+		v[action_up] = V[p->x][p->y - 1];
+	}
+	if ((p->y != ROW - 1) && (X[p->x][p->y + 1] != false))
+	{
+		v[action_down] = V[p->x][p->y + 1];
+	}
+	if ((p->x != 0) && (X[p->x - 1][p->y] != false))
+	{
+		v[action_left] = V[p->x - 1][p->y];
+	}
+	if ((p->x != COL - 1) && (X[p->x + 1][p->y] != false))
+	{
+		v[action_right] = V[p->x + 1][p->y];
+	}
+
+	act = findMax(v);
+
+	p_save.x = p->x;
+	p_save.y = p->y;
+
+	/* update value function of current position */
+	switch (act)
+	{
+	case action_up:
+		//V[p->x][p->y] = gamma * V[p->x][p->y - 1];
+		//p->y--;
+		p->y--;
+		break;
+	case action_down:
+		//V[p->x][p->y] = gamma * V[p->x][p->y + 1];
+		//p->y++;
+		p->y++;
+		break;
+	case action_left:
+		//V[p->x][p->y] = gamma * V[p->x - 1][p->y];
+		//p->x--;
+		p->x--;
+		break;
+	case action_right:
+		//V[p->x][p->y] = gamma * V[p->x + 1][p->y];
+		//p->x++;
+		p->x++;
+		break;
+	default:
+		break;
+	}
+	//V[p_save.x][p_save.y] = (getToNext(agt->gamma * gamma, agt)).vTemp + agt->cost;
+
+	/* update the old value function */
+	//V[p_save.x][p_save.y] = agt->gamma * V[p->x][p->y];
+	V[p_save.x][p_save.y] += gamma * (getToNext(agt->gamma * gamma, agt)).vTemp;
+
+	/* calculate the new value function */
+	result.vTemp = (getToNext(agt->gamma * gamma, agt)).vTemp + agt->cost;
+
+	return result;
+}
+#endif
+
 Action_TypeDef findMax(float *v)
 {
 	uint16_t i = 0;
+
+	if ((v[0] == 0) && (0 == v[1]) && (0 == v[2]) && (0 == v[3]))
+	{
+		uint16_t r = rand() % 3;
+		return (Action_TypeDef)r;
+	}
 
 	if (v[0] > v[1])
 	{
@@ -162,68 +366,6 @@ Action_TypeDef findMax(float *v)
 	}
 	return (Action_TypeDef)i;
 }
-
-float findNextBiggestReward(Agent_TypeDef *agt, uint16_t step)
-{
-	Action_TypeDef act;
-	Position_TypeDef *p;
-	float v[4] = { 0 };
-	p = &agt->current_position;
-
-
-	/* exit when reach the target position? */
-	if ((p->x == agt->target_position.x) && (p->y == agt->target_position.y))
-		return 0.0;
-
-	if ((p->y != 0) && (X[p->x][p->y - 1] != false))
-	{
-		v[action_up] = V[p->x][p->y - 1];
-	}
-	if ((p->y < ROW - 1) && (X[p->x][p->y + 1] != false))
-	{
-		v[action_down] = V[p->x][p->y + 1];
-	}
-	if ((p->x != 0) && (X[p->x + 1][p->y] != false))
-	{
-		v[action_right] = V[p->x + 1][p->y];
-	}
-	if ((p->x != COL - 1) && (X[p->x - 1][p->y] != false))
-	{
-		v[action_left] = V[p->x - 1][p->y];
-	}
-
-	switch (act = findMax(v))
-	{
-	case action_up:
-		p->y--;
-		break;
-	case action_down:
-		p->y++;
-		break;
-	case action_left:
-		p->x--;
-		break;
-	case action_right:
-		p->x++;
-		break;
-	default:
-		break;
-	}
-
-	float reward_this_step = v[act];
-	if (step == 1)
-	{
-		return reward_this_step;
-	}
-	step--;
-	while (step != 0)
-	{
-		reward_this_step = agt->gamma * reward_this_step;
-		step--;
-	}
-	return reward_this_step;
-}
-
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
 // 调试程序: F5 或调试 >“开始调试”菜单
 
