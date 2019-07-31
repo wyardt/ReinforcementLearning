@@ -14,6 +14,7 @@ typedef struct {
 }Position_TypeDef;
 
 typedef struct {
+	Position_TypeDef start_position;
 	Position_TypeDef current_position;
 	Position_TypeDef target_position;
 	float gamma = 0.9;
@@ -53,6 +54,7 @@ Action_TypeDef findMax(float *v);
 
 int main()
 {
+	agent.start_position = { 8, 9 };
 	agent.current_position = { 8, 9 };
 	agent.target_position = { 2, 7 };
 	agent.cost = -0.0;
@@ -110,7 +112,8 @@ int main()
 
 	float Vtemp[ROW][COL] = { 0 };
 
-	while (T++ < 100)
+	agent.t = 1;
+	while (1)
 	{
 		for (uint16_t i = 0; i < ROW; i++)
 		{
@@ -118,15 +121,17 @@ int main()
 			{
 				if (X[i][j] == true)
 				{
-					uint16_t step = 1;
-					float valueT = 0;
 					agent.current_position.x = i;
 					agent.current_position.y = j;
-					agent.t = 0;
-					Vtemp[i][j] = (getToNext(agent.gamma, agent)).vTemp;
+					NextState_TypeDef NextTStepResult = getToNext(agent.gamma, agent);
+					if (NextTStepResult.target_reached == true)
+					{
+						Vtemp[i][j] = NextTStepResult.vTemp;
+					}
 				}
 			}
 		}
+		agent.t++;
 #if 1
 		bool shouldBeNextTime = false;
 		for (uint16_t ii = 0; ii < ROW; ii++)
@@ -145,30 +150,34 @@ int main()
 			break;
 		}
 #endif
-	}
-	std::cout << "value function is\n";
-	for (uint16_t i = 0; i < ROW; i++)
-	{
-		for (uint16_t j = 0; j < COL; j++)
+
+		std::cout << "value function is\n";
+		for (uint16_t i = 0; i < ROW; i++)
 		{
-			if ((i >= obs.top.y) && (i <= obs.bottom.y)
-				&& (j >= obs.top.x) && (j <= obs.bottom.x))
+			for (uint16_t j = 0; j < COL; j++)
 			{
-				//std::cout << 0;
-				printf("%9.9f-", 0);
+				if ((i >= obs.top.y) && (i <= obs.bottom.y)
+					&& (j >= obs.top.x) && (j <= obs.bottom.x))
+				{
+					//std::cout << 0;
+					printf("%9.9f-", 0);
+				}
+				else
+				{
+					//std::cout << V[i][j];
+					printf("%9.9f-", V[i][j]);
+				}
 			}
-			else
-			{
-				//std::cout << V[i][j];
-				printf("%9.9f-", V[i][j]);
-			}
+			std::cout << '\n';
 		}
-		std::cout << '\n';
 	}
+
+	/* todo draw the ultimate footprint */
+
 }
 
 
-NextState_TypeDef getToNext(float gamma, Agent_TypeDef agt)
+NextState_TypeDef getToNext(float discount, Agent_TypeDef agt)
 {
 	NextState_TypeDef result = {
 		0.0,
@@ -176,8 +185,7 @@ NextState_TypeDef getToNext(float gamma, Agent_TypeDef agt)
 	};
 	Position_TypeDef p_save;
 
-	Position_TypeDef *p = &agt.current_position;
-	float v[4];
+	float valueOfNextPosition[4] = { -1, -1, -1, -1 };
 	Action_TypeDef act;
 
 	/* get to the target position, exit */
@@ -188,65 +196,71 @@ NextState_TypeDef getToNext(float gamma, Agent_TypeDef agt)
 		return result;
 	}
 
+	if (agt.t == 0)
+	{
+		result.target_reached = false;
+		result.vTemp = 0.0;
+		return result;
+	}
+	agt.t--;
+
 	/* find next move's value */
-	if ((p->y != 0) && (X[p->x][p->y - 1] != false))
+	if ((agt.current_position.y != 0) && (X[agt.current_position.x][agt.current_position.y - 1] != false))
 	{
-		v[action_up] = V[p->x][p->y - 1];
+		valueOfNextPosition[action_up] = V[agt.current_position.x][agt.current_position.y - 1];
 	}
-	if ((p->y != ROW - 1) && (X[p->x][p->y + 1] != false))
+	if ((agt.current_position.y != ROW - 1) && (X[agt.current_position.x][agt.current_position.y + 1] != false))
 	{
-		v[action_down] = V[p->x][p->y + 1];
+		valueOfNextPosition[action_down] = V[agt.current_position.x][agt.current_position.y + 1];
 	}
-	if ((p->x != 0) && (X[p->x - 1][p->y] != false))
+	if ((agt.current_position.x != 0) && (X[agt.current_position.x - 1][agt.current_position.y] != false))
 	{
-		v[action_left] = V[p->x - 1][p->y];
+		valueOfNextPosition[action_left] = V[agt.current_position.x - 1][agt.current_position.y];
 	}
-	if ((p->x != COL - 1) && (X[p->x + 1][p->y] != false))
+	if ((agt.current_position.x != COL - 1) && (X[agt.current_position.x + 1][agt.current_position.y] != false))
 	{
-		v[action_right] = V[p->x + 1][p->y];
+		valueOfNextPosition[action_right] = V[agt.current_position.x + 1][agt.current_position.y];
 	}
 
-	act = findMax(v);
+	act = findMax(valueOfNextPosition);
 
-	p_save.x = p->x;
-	p_save.y = p->y;
+	p_save.x = agt.current_position.x;
+	p_save.y = agt.current_position.y;
 
 	/* update value function of current position */
 	switch (act)
 	{
 	case action_up:
-		//V[p->x][p->y] = gamma * V[p->x][p->y - 1];
-		//p->y--;
-		p->y--;
+		agt.current_position.y--;
 		break;
 	case action_down:
-		//V[p->x][p->y] = gamma * V[p->x][p->y + 1];
-		//p->y++;
-		p->y++;
+		agt.current_position.y++;
 		break;
 	case action_left:
-		//V[p->x][p->y] = gamma * V[p->x - 1][p->y];
-		//p->x--;
-		p->x--;
+		agt.current_position.x--;
 		break;
 	case action_right:
-		//V[p->x][p->y] = gamma * V[p->x + 1][p->y];
-		//p->x++;
-		p->x++;
+		agt.current_position.x++;
 		break;
 	default:
 		break;
 	}
-	//V[p_save.x][p_save.y] = (getToNext(agt->gamma * gamma, agt)).vTemp + agt->cost;
-	
-	/* update the old value function */
-	//V[p_save.x][p_save.y] = agt->gamma * V[p->x][p->y];
-	V[p_save.x][p_save.y] += gamma * (getToNext(agent.gamma * gamma, agt)).vTemp;
-
-	/* calculate the new value function */
-	result.vTemp = (getToNext(agent.gamma * gamma, agt)).vTemp + agent.cost;
-
-	return result;
+	NextState_TypeDef NextOneStepResult;
+	NextOneStepResult = getToNext(agent.gamma * discount, agt);
+	if (NextOneStepResult.target_reached == true)
+	{
+		NextState_TypeDef result;
+		result.target_reached = true;
+		result.vTemp = agt.gamma * NextOneStepResult.vTemp;
+		return result;
+	}
+	else
+	{
+		NextState_TypeDef result;
+		result.target_reached = false;
+		result.vTemp = 0.0;
+		return result;
+	}
 }
 #if 0
 {
