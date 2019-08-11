@@ -1,44 +1,7 @@
-﻿#include <iostream>
-#include <stdlib.h>
-#include <cmath>
+﻿
+#include "agent.h"
 
-#define ROW 10
-#define COL 10
-
-typedef struct {
-	uint16_t x;
-	uint16_t y;
-}Position_TypeDef;
-
-typedef struct {
-	Position_TypeDef start_position;
-	Position_TypeDef current_position;
-	Position_TypeDef target_position;
-	float gamma = 0.9;
-	uint32_t t;
-	float cost;
-}Agent_TypeDef;
-
-typedef struct {
-	float vTemp;
-	bool target_reached;
-	Position_TypeDef next;
-}NextState_TypeDef;
-
-/* rectangular obstacle */
-typedef struct {
-	Position_TypeDef top;  /* top-left corner coordinate of the obstacle */
-	Position_TypeDef bottom;  /* right-bottom corner coordinate of the obstacle */
-}Obstacle_TypeDef;
-
-typedef enum {
-	action_up = 0,
-	action_down,
-	action_left,
-	action_right
-}Action_TypeDef;
-
-Agent_TypeDef agent;
+//Agent_TypeDef agent;
 Obstacle_TypeDef obs = {
 {3, 3},
 {COL - 1, 5}
@@ -51,54 +14,26 @@ uint32_t T = 0;
 NextState_TypeDef getToNext(float gamma, Agent_TypeDef agt);
 Action_TypeDef findMax(float *v);
 
-class Qfunc {
-	public:
-	Qfunc();
-	NextState_TypeDef moveOneStep(Action_TypeDef action);
-	private:
-	Position_TypeDef currentPosition;
-};
-
-
-int main()
+Qfunc::Qfunc()
 {
 	agent.start_position = { 8, 9 };
 	agent.current_position = { 8, 9 };
 	agent.target_position = { 2, 7 };
 	agent.cost = -0.0;
 	agent.gamma = 0.999;
+	
+	/* init Q function */
+	for (uint16_t i = 0; i < ROW; i++)
+	{
+		for (uint16_t j = 0; j < COL; j++)
+		{
+			//for (uint16_t k = 0; k < action_space_scale; k++)
+			{
+				Q[i][j] = 0.0;// (rand() % 100 + 1) / 100.0;
+			}
+		}
+	}
 
-	/* init value function */
-	for (uint16_t i = 0; i < ROW; i++)
-	{
-		for (uint16_t j = 0; j < COL; j++)
-		{
-			V[i][j] = 0.0;// (rand() % 100 + 1) / 100.0;
-		}
-		V[agent.target_position.x][agent.target_position.y] = 1;
-	}
-	std::cout << "init value function is\n";
-	for (uint16_t i = 0; i < ROW; i++)
-	{
-		for (uint16_t j = 0; j < COL; j++)
-		{
-			if ((i >= obs.top.y) && (i <= obs.bottom.y)
-				&& (j >= obs.top.x) && (j <= obs.bottom.x))
-			{
-				//std::cout << 0;
-				printf("%9.9f-", 0);
-			}
-			else
-			{
-				//std::cout << V[i][j];
-				printf("%9.9f-", V[i][j]);
-			}
-		}
-		std::cout << '\n';
-	}
-	
-	/* generate map X */
-	
 	std::cout << "map is \n";
 	for (uint16_t i = 0; i < ROW; i++)
 	{
@@ -117,8 +52,153 @@ int main()
 		}
 		std::cout << '\n';
 	}
+}
 
+bool Qfunc::reachTarget(Position_TypeDef *pos)
+{
+	/* get to the target position, exit */
+	if ((pos->x == agent.target_position.x) && (pos->y == agent.target_position.y))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+NextState_TypeDef Qfunc::moveOneStep(Position_TypeDef pos, Action_TypeDef action)
+{
+	Position_TypeDef nextPosition = agent.current_position;
+	float retQvalue = 0.0;
+
+	switch (action)
+	{
+	case action_up:
+	if ((pos.y != 0) && (X[pos.x][pos.y - 1] != false))
+	{
+		pos.y--;
+	}
+	break;
+	case action_down:
+	if ((pos.y != ROW - 1) && (X[pos.x][pos.y + 1] != false))
+	{
+		pos.y++;
+	}
+	break;
+	case action_left:
+	if ((pos.x != 0) && (X[pos.x - 1][pos.y] != false))
+	{
+		pos.x--;
+	}
+	break;
+	case action_right:
+	if ((pos.x != COL - 1) && (X[pos.x + 1][pos.y] != false))
+	{
+		pos.x++;
+	}
+	break;
+	default:
+		break;
+	}
+
+	NextState_TypeDef ret;
+
+	if (reachTarget(&pos) != false)
+	{
+		ret.vTemp[action] = 1.0;
+		ret.target_reached = true;
+	}
+	else
+	{
+		ret.target_reached = false;
+		ret.vTemp[action] = 0.0;
+	}
+	return ret;
+}
+
+Agent_TypeDef agent;
+
+int main()
+{
 	float Vtemp[ROW][COL] = { 0 };
+
+	NextState_TypeDef nextState;
+	Qfunc qf;
+	Action_ValueTypeDef actionValue;
+
+	Position_TypeDef cp;
+	NextState_TypeDef ns;
+
+	while (1)
+	{
+		for (uint16_t i = 0; i < ROW; i++)
+		{
+			for (uint16_t j = 0; j < COL; j++)
+			{
+				if (X[i][j] == true)
+				{
+					cp.x = i;
+					cp.y = j;
+					Position_TypeDef nextPos;
+
+					Action_TypeDef act;
+					/* scan all action's reward */
+					for (act = action_up; act < action_space_scale; act += 1);
+					{
+						ns = (NextState_TypeDef)(qf.moveOneStep(cp, act));
+					}
+					/* find the most valuable action */
+					act = findMax(ns.vTemp);
+
+					/* update Q-value */
+					if (ns.target_reached == true)
+					{
+						Vtemp[i][j] = ns.vTemp[act];
+					}
+				}
+			}
+		}
+
+		bool shouldBeNextTime = false;
+		for (uint16_t ii = 0; ii < ROW; ii++)
+		{
+			for (uint16_t jj = 0; jj < ROW; jj++)
+			{
+				if ((qf.Q[ii][jj] - Vtemp[ii][jj] < -0.000001) || (qf.Q[ii][jj] - Vtemp[ii][jj] > 0.000001))
+				{
+					qf.Q[ii][jj] = Vtemp[ii][jj]; /* need renew next time */
+					shouldBeNextTime = true;
+				}
+			}
+		}
+		if (false == shouldBeNextTime)
+		{
+			break;
+		}
+
+		std::cout << "value function is\n";
+		for (uint16_t i = 0; i < ROW; i++)
+		{
+			for (uint16_t j = 0; j < COL; j++)
+			{
+				if ((i >= obs.top.y) && (i <= obs.bottom.y)
+					&& (j >= obs.top.x) && (j <= obs.bottom.x))
+				{
+					//std::cout << 0;
+					printf("%9.9f-", 0);
+				}
+				else
+				{
+					//std::cout << V[i][j];
+					printf("%9.9f-", qf.Q[i][j]);
+				}
+			}
+			std::cout << '\n';
+		}
+	}
+
+	
 
 	agent.t = 1;
 	while (1)
@@ -184,7 +264,7 @@ int main()
 
 }
 
-
+#if 0
 NextState_TypeDef getToNext(float discount, Agent_TypeDef agt)
 {
 	NextState_TypeDef result = {
@@ -270,6 +350,7 @@ NextState_TypeDef getToNext(float discount, Agent_TypeDef agt)
 		return result;
 	}
 }
+#endif
 #if 0
 {
 	NextState_TypeDef result = {
