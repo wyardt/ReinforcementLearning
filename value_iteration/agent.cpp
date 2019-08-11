@@ -1,9 +1,6 @@
-﻿// agent_curve.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
-//
-
-#include "pch.h"
-#include <iostream>
+﻿#include <iostream>
 #include <stdlib.h>
+#include <cmath>
 
 #define ROW 10
 #define COL 10
@@ -27,9 +24,10 @@ typedef struct {
 	bool target_reached;
 }NextState_TypeDef;
 
+/* rectangular obstacle */
 typedef struct {
-	Position_TypeDef top;
-	Position_TypeDef bottom;
+	Position_TypeDef top;  /* top-left corner coordinate of the obstacle */
+	Position_TypeDef bottom;  /* right-bottom corner coordinate of the obstacle */
 }Obstacle_TypeDef;
 
 typedef enum {
@@ -138,7 +136,7 @@ int main()
 		{
 			for (uint16_t jj = 0; jj < ROW; jj++)
 			{
-				if (abs(V[ii][jj] - Vtemp[ii][jj]) > 0.000001)
+				if ((V[ii][jj] - Vtemp[ii][jj] < -0.000001) || (V[ii][jj] - Vtemp[ii][jj] > 0.000001))
 				{
 					V[ii][jj] = Vtemp[ii][jj]; /* need renew next time */
 					shouldBeNextTime = true;
