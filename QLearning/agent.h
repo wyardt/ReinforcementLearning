@@ -31,9 +31,9 @@ typedef struct {
 }Agent_TypeDef;
 
 typedef struct {
-	float vTemp[action_space_scale];
+	float reward;
 	bool target_reached;
-	Position_TypeDef next[action_space_scale];
+	Position_TypeDef nextPos;
 }NextState_TypeDef;
 
 typedef struct {
@@ -47,17 +47,29 @@ typedef struct {
 }Obstacle_TypeDef;
 
 
-class Qfunc {
-	public:
-	Qfunc();
+class QLearning {
+public:
+	QLearning();
 	NextState_TypeDef moveOneStep(Position_TypeDef pos, Action_TypeDef action);
-	float Q[ROW][COL];
+	NextState_TypeDef iterator(Position_TypeDef pos, float discountOverrall);
 	
-	Agent_TypeDef agent;
+	bool stateIsInRange(uint16_t x, uint16_t y);
+	uint16_t updateQ(uint16_t x, uint16_t y, double q);
+	void printQ(void);
+	uint16_t stepCouldBeUsed;
+
+	float discount;
+
+	bool reachTarget(Position_TypeDef pos);
+private:
+
+	Obstacle_TypeDef obs;
+	Position_TypeDef current_position;
+	Position_TypeDef target_position;
 	bool X[ROW][COL];
-	private:
-	Position_TypeDef currentPosition;
-	bool reachTarget(Position_TypeDef *pos);
+	float Q[ROW][COL];
+
+	Action_TypeDef findMax(float *v);
 };
 
 #endif
