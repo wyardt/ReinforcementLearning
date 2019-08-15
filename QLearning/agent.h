@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <cmath>
 
-#define ROW 10
-#define COL 10
+#define Y_MAX 10
+#define X_MAX 10
 
 typedef enum {
 	action_up = 0,
@@ -56,7 +56,7 @@ public:
 	bool stateIsInRange(uint16_t x, uint16_t y);
 	uint16_t updateQ(uint16_t x, uint16_t y, double q);
 	void printQ(void);
-	uint16_t stepCouldBeUsed;
+	uint16_t lambda;
 
 	float discount;
 
@@ -66,8 +66,8 @@ private:
 	Obstacle_TypeDef obs;
 	Position_TypeDef current_position;
 	Position_TypeDef target_position;
-	bool X[ROW][COL];
-	float Q[ROW][COL];
+	bool X[Y_MAX][X_MAX];
+	float Q[Y_MAX][X_MAX];
 
 	Action_TypeDef findMax(float *v);
 };

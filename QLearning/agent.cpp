@@ -4,26 +4,26 @@
 
 int main()
 {
-	float tempQ[ROW][COL] = { 0 };
+	float tempQ[Y_MAX][X_MAX] = { 0 };
 	QLearning ql;
 	uint16_t t = 1;
 
 	while (1)
 	{
-		for (uint16_t i = 0; i < ROW; i++)
+		for (uint16_t y = 0; y < Y_MAX; y++)
 		{
-			for (uint16_t j = 0; j < COL; j++)
+			for (uint16_t x = 0; x < X_MAX; x++)
 			{
 				Position_TypeDef cp;
-				cp.x = i;
-				cp.y = j;
-				ql.stepCouldBeUsed = 1;
+				cp.x = x;
+				cp.y = y;
+				ql.lambda = 1;
 					
-				if (ql.stateIsInRange(i, j) == true)
+				if (ql.stateIsInRange(y, x) == true)
 				{
 					NextState_TypeDef ns = ql.iterator(cp, ql.discount);
 
-					tempQ[i][j] = ns.reward;
+					tempQ[y][x] = ns.reward;
 				}
 			}
 		}
@@ -32,11 +32,11 @@ int main()
 
 		uint16_t shouldBeNextTime = 0;
 
-		for (uint16_t ii = 0; ii < ROW; ii++)
+		for (uint16_t yy = 0; yy < Y_MAX; yy++)
 		{
-			for (uint16_t jj = 0; jj < ROW; jj++)
+			for (uint16_t xx = 0; xx < Y_MAX; xx++)
 			{
-				shouldBeNextTime += ql.updateQ(ii, jj, tempQ[ii][jj]);
+				shouldBeNextTime += ql.updateQ(yy, xx, tempQ[yy][xx]);
 			}
 		}
 
@@ -52,39 +52,40 @@ int main()
 
 QLearning::QLearning()
 {
-	target_position.x = 2;
-	target_position.y = 8;
+	target_position.x = 8;
+	target_position.y = 2;
 	discount = 0.999;
-	obs.top.x = 5;
+	obs.top.x = 3;
 	obs.top.y = 3;
-	obs.bottom.x = COL - 1;
+	obs.bottom.x = X_MAX - 1;
 	obs.bottom.y = 6;
-	stepCouldBeUsed = 1;
+	lambda = 1;     /* only one step forward, which is TD(0) */
 
 	/* init Q function */
-	for (uint16_t i = 0; i < ROW; i++)
+	for (uint16_t y = 0; y < Y_MAX; y++)
 	{
-		for (uint16_t j = 0; j < COL; j++)
+		for (uint16_t x = 0; x < X_MAX; x++)
 		{
-			Q[i][j] = 0.0;// (rand() % 100 + 1) / 100.0;
+			Q[y][x] = 0.0;
 		}
 	}
 
 	std::cout << "map is \n";
-	for (uint16_t i = 0; i < ROW; i++)
+	for (uint16_t y = 0; y < Y_MAX; y++)
 	{
-		for (uint16_t j = 0; j < COL; j++)
+		for (uint16_t x = 0; x < X_MAX; x++)
 		{
-			if ((i >= obs.top.y) && (i <= obs.bottom.y)
-				&& (j >= obs.top.x) && (j <= obs.bottom.x))
+			if ((y >= obs.top.y) && (y <= obs.bottom.y)
+				&& (x >= obs.top.x) && (x <= obs.bottom.x))
 			{
-				X[i][j] = false;
+				X[y][x] = false;
 			}
 			else
 			{
-				X[i][j] = true;
+				X[y][x] = true;
 			}
-			std::cout << ((X[i][j] == true) ? ((i == target_position.x && j == target_position.y) ? "E" : ((i == current_position.x && j == current_position.y) ? "S" : "O")) : "X");
+			std::cout << ((X[y][x] == true) ?
+                                ((y == target_position.y && x == target_position.x) ? "E" : "O") : "X");
 		}
 		std::cout << '\n';
 	}
@@ -102,39 +103,39 @@ bool QLearning::reachTarget(Position_TypeDef pos)
 	}
 }
 
-uint16_t QLearning::updateQ(uint16_t x, uint16_t y, double q)
+uint16_t QLearning::updateQ(uint16_t y, uint16_t x, double q)
 {
 	uint16_t ret = 0;
 
-	if ((Q[x][y] - q < -0.000001) || (Q[x][y] - q > 0.000001))
+	if ((Q[y][x] - q < -0.000001) || (Q[y][x] - q > 0.000001))
 	{
 		/* need renew next time */
 		ret = 1;
 	}
-	Q[x][y] = q;
+	Q[y][x] = q;
 	return ret;
 }
 
-bool QLearning::stateIsInRange(uint16_t x, uint16_t y)
+bool QLearning::stateIsInRange(uint16_t y, uint16_t x)
 {
-	return ((X[x][y] == true) && ((x != target_position.x) || (y != target_position.y)));
+	return ((X[y][x] == true) && ((y != target_position.y) || (x != target_position.x)));
 }
 
 void QLearning::printQ(void)
 {
 	std::cout << "Q function is\n";
-	for (uint16_t i = 0; i < ROW; i++)
+	for (uint16_t y = 0; y < Y_MAX; y++)
 	{
-		for (uint16_t j = 0; j < COL; j++)
+		for (uint16_t x = 0; x < X_MAX; x++)
 		{
-			if ((i >= obs.top.y) && (i <= obs.bottom.y)
-				&& (j >= obs.top.x) && (j <= obs.bottom.x))
+			if ((y >= obs.top.y) && (y <= obs.bottom.y)
+				&& (x >= obs.top.x) && (x <= obs.bottom.x))
 			{
 				printf("%9.9f-", 0);
 			}
 			else
 			{
-				printf("%9.9f-", Q[i][j]);
+				printf("%9.9f-", Q[y][x]);
 			}
 		}
 		std::cout << '\n';
@@ -149,25 +150,25 @@ NextState_TypeDef QLearning::moveOneStep(Position_TypeDef currentPos, Action_Typ
 	switch (action)
 	{
 	case action_up:
-		if ((currentPos.y != 0) && (X[currentPos.x][currentPos.y - 1] != false))
+		if ((currentPos.y != 0) && (X[currentPos.y - 1][currentPos.x] != false))
 		{
 			currentPos.y--;
 		}
 		break;
 	case action_down:
-		if ((currentPos.y != ROW - 1) && (X[currentPos.x][currentPos.y + 1] != false))
+		if ((currentPos.y != Y_MAX - 1) && (X[currentPos.y + 1][currentPos.x] != false))
 		{
 			currentPos.y++;
 		}
 		break;
 	case action_left:
-		if ((currentPos.x != 0) && (X[currentPos.x - 1][currentPos.y] != false))
+		if ((currentPos.x != 0) && (X[currentPos.y][currentPos.x - 1] != false))
 		{
 			currentPos.x--;
 		}
 		break;
 	case action_right:
-		if ((currentPos.x != COL - 1) && (X[currentPos.x + 1][currentPos.y] != false))
+		if ((currentPos.x != X_MAX - 1) && (X[currentPos.y][currentPos.x + 1] != false))
 		{
 			currentPos.x++;
 		}
@@ -186,7 +187,7 @@ NextState_TypeDef QLearning::moveOneStep(Position_TypeDef currentPos, Action_Typ
 	else
 	{
 		ret.target_reached = false;
-		ret.reward = 0.0 + discount * Q[currentPos.x][currentPos.y];
+		ret.reward = 0.0 + discount * Q[currentPos.y][currentPos.x];
 	}
 	ret.nextPos = currentPos;
 	return ret;
@@ -203,7 +204,7 @@ NextState_TypeDef QLearning::iterator(Position_TypeDef cp, float discountOverral
 		return rewardFound;
 	}
 #endif	
-	if (stepCouldBeUsed == 0)
+	if (lambda == 0)
 	{
 		NextState_TypeDef rewardNotFound;
 		rewardNotFound.target_reached = false;
@@ -211,7 +212,7 @@ NextState_TypeDef QLearning::iterator(Position_TypeDef cp, float discountOverral
 		return rewardNotFound;
 	}
 
-	stepCouldBeUsed--;
+	lambda--;
 
 	/* scan all action's reward */			
 	NextState_TypeDef nextQ[action_space_scale];
@@ -247,7 +248,7 @@ NextState_TypeDef QLearning::iterator(Position_TypeDef cp, float discountOverral
 
 	NextState_TypeDef ns = iterator(nextQ[act].nextPos, discount * discountOverrall);
 
-	ns.reward = ns.reward + discountOverrall * Q[nextQ[act].nextPos.x][nextQ[act].nextPos.y];
+	ns.reward = ns.reward + discountOverrall * Q[nextQ[act].nextPos.y][nextQ[act].nextPos.x];
 
 	return ns;
 }
