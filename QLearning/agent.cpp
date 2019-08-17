@@ -4,7 +4,7 @@
 
 int main()
 {
-	float tempQ[Y_MAX][X_MAX] = { 0 };
+	double tempQ[Y_MAX][X_MAX] = { 0 };
 	QLearning ql;
 	uint16_t t = 1;
 
@@ -54,12 +54,13 @@ QLearning::QLearning()
 {
 	target_position.x = 8;
 	target_position.y = 2;
-	discount = 0.999;
+	discount = 0.99;
 	obs.top.x = 3;
 	obs.top.y = 3;
 	obs.bottom.x = X_MAX - 1;
 	obs.bottom.y = 6;
 	lambda = 1;     /* only one step forward, which is TD(0) */
+    alpha = 0.01;
 
 	/* init Q function */
 	for (uint16_t y = 0; y < Y_MAX; y++)
@@ -112,7 +113,7 @@ uint16_t QLearning::updateQ(uint16_t y, uint16_t x, double q)
 		/* need renew next time */
 		ret = 1;
 	}
-	Q[y][x] = q;
+	Q[y][x] += alpha * (q - Q[y][x]);
 	return ret;
 }
 
@@ -145,7 +146,7 @@ void QLearning::printQ(void)
 NextState_TypeDef QLearning::moveOneStep(Position_TypeDef currentPos, Action_TypeDef action)
 {
 	Position_TypeDef nextPosition = currentPos;
-	float retQvalue = 0.0;
+	double retQvalue = 0.0;
 
 	switch (action)
 	{
@@ -193,7 +194,7 @@ NextState_TypeDef QLearning::moveOneStep(Position_TypeDef currentPos, Action_Typ
 	return ret;
 }
 
-NextState_TypeDef QLearning::iterator(Position_TypeDef cp, float discountOverrall)
+NextState_TypeDef QLearning::iterator(Position_TypeDef cp, double discountOverrall)
 {
 #if 1
 	if (reachTarget(cp) == true)
@@ -223,7 +224,7 @@ NextState_TypeDef QLearning::iterator(Position_TypeDef cp, float discountOverral
 	nextQ[action_left] = moveOneStep(cp, action_left);
 	nextQ[action_right] = moveOneStep(cp, action_right);
 	
-	float QNext[action_space_scale];
+	double QNext[action_space_scale];
 #if 0
 	QNext[action_down] = nextQ[action_down].reward;
 	QNext[action_up] = nextQ[action_up].reward;
@@ -253,7 +254,7 @@ NextState_TypeDef QLearning::iterator(Position_TypeDef cp, float discountOverral
 	return ns;
 }
 
-Action_TypeDef QLearning::findMax(float *v)
+Action_TypeDef QLearning::findMax(double *v)
 {
 	uint16_t i = 0;
 

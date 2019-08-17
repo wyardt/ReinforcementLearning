@@ -25,19 +25,19 @@ typedef struct {
 	Position_TypeDef start_position;
 	Position_TypeDef current_position;
 	Position_TypeDef target_position;
-	float gamma = 0.9;
+	double gamma = 0.9;
 	uint32_t t;
-	float cost;
+	double cost;
 }Agent_TypeDef;
 
 typedef struct {
-	float reward;
+	double reward;
 	bool target_reached;
 	Position_TypeDef nextPos;
 }NextState_TypeDef;
 
 typedef struct {
-	float v[action_space_scale];
+	double v[action_space_scale];
 }Action_ValueTypeDef;
 
 /* rectangular obstacle */
@@ -51,15 +51,16 @@ class QLearning {
 public:
 	QLearning();
 	NextState_TypeDef moveOneStep(Position_TypeDef pos, Action_TypeDef action);
-	NextState_TypeDef iterator(Position_TypeDef pos, float discountOverrall);
+	NextState_TypeDef iterator(Position_TypeDef pos, double discountOverrall);
 	
 	bool stateIsInRange(uint16_t x, uint16_t y);
 	uint16_t updateQ(uint16_t x, uint16_t y, double q);
 	void printQ(void);
 	uint16_t lambda;
 
-	float discount;
-
+	double discount;
+    double alpha;
+    
 	bool reachTarget(Position_TypeDef pos);
 private:
 
@@ -67,9 +68,9 @@ private:
 	Position_TypeDef current_position;
 	Position_TypeDef target_position;
 	bool X[Y_MAX][X_MAX];
-	float Q[Y_MAX][X_MAX];
+	double Q[Y_MAX][X_MAX];
 
-	Action_TypeDef findMax(float *v);
+	Action_TypeDef findMax(double *v);
 };
 
 #endif
