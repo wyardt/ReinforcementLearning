@@ -49,7 +49,7 @@ typedef struct {
 
 class QLearning {
 public:
-	QLearning();
+	QLearning(double discount_, double alpha_);
 	NextState_TypeDef moveOneStep(Position_TypeDef pos, Action_TypeDef action);
 	NextState_TypeDef iterator(Position_TypeDef pos, double discountOverrall);
 	

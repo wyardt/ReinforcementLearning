@@ -5,7 +5,7 @@
 int main()
 {
 	double tempQ[Y_MAX][X_MAX] = { 0 };
-	QLearning ql;
+	QLearning ql(0.99, 0.01);
 	uint16_t t = 1;
 
 	while (1)
@@ -50,17 +50,17 @@ int main()
 	/* todo draw the ultimate footprint */
 }
 
-QLearning::QLearning()
+QLearning::QLearning(double discount_, double alpha_)
 {
 	target_position.x = 8;
 	target_position.y = 2;
-	discount = 0.99;
+	discount = discount_;
 	obs.top.x = 3;
 	obs.top.y = 3;
 	obs.bottom.x = X_MAX - 1;
 	obs.bottom.y = 6;
 	lambda = 1;     /* only one step forward, which is TD(0) */
-    alpha = 0.01;
+    alpha = alpha_;
 
 	/* init Q function */
 	for (uint16_t y = 0; y < Y_MAX; y++)
